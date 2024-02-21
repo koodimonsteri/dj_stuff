@@ -1,14 +1,13 @@
-from cachetools import TTLCache
-import logging
-import requests
-import webbrowser
-from urllib.parse import urlparse, parse_qs
 import base64
-import threading
+import logging
 import http.server
 import socketserver
-import os
-from dotenv import load_dotenv
+import threading
+import webbrowser
+
+from cachetools import TTLCache
+import requests
+from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 
@@ -17,27 +16,48 @@ AUTH_ENDPOINT = 'https://accounts.spotify.com/authorize'
 TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token'
 REDIRECT_URL = 'http://localhost:8080'
 
-API_BASE_URL = 'https://api.spotify.com/v1'
+
+class SpotifyAPIServer(socketserver.TCPServer):
+    """
+    Inherit TCP server to get reference for returning authorization code
+    """
+    def __init__(self, server_address, RequestHandlerClass, credentials):
+        super().__init__(server_address, RequestHandlerClass)
+        self.credentials = credentials
 
 
-class SpoPyAPI:
+class MyRequestHandler(http.server.BaseHTTPRequestHandler):
+    """
+    Simple server class to handle spotify authorization redirect
+    """
+    def do_GET(self):
+        # Extract the authorization code from the callback URL
+        query_components = parse_qs(urlparse(self.path).query)
+        auth_code = query_components.get('code', [''])[0]
 
-    def __init__(self, client_id=None, client_secret=None):
-        self.client_id = client_id or os.getenv('CLIENT_ID')
-        self.client_secret = client_secret or os.getenv('CLIENT_SECRET')
-        self._auth_code = None
-        self.refresh_token: str = None
+        self.server.credentials._auth_code = auth_code
+
+        # Respond with a simple HTML message
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b"<html><body><h1>Authorization successful</h1></body></html>")
+
+    def log_message(self, format, *args):
+        pass
+
+
+class Credentials:
+    """
+    Simple credentials class to handle authorization
+    """
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.ttl_cache = TTLCache(maxsize=1, ttl=3600)
+        self._auth_code = None
+        self.refresh_token = None
         self.authorize()
-
-    def _get_request(self, url, params=None):
-        logger.info('Get URL: %s', url)
-        headers = {
-            'Authorization': f'Bearer {self.get_access_token()}'
-        }
-        result = requests.get(url, headers=headers, params=params)
-        result.raise_for_status()
-        return result.json()
 
     def authorize(self):
         """
@@ -81,8 +101,8 @@ class SpoPyAPI:
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         data = {
-           'grant_type': 'refresh_token',
-           'refresh_token': f'{self.refresh_token}',
+            'grant_type': 'refresh_token',
+            'refresh_token': f'{self.refresh_token}',
         }
         res = requests.post(TOKEN_ENDPOINT, headers=headers, data=data)
 
@@ -90,10 +110,10 @@ class SpoPyAPI:
         token = res.json()
 
         # TODO: Can expires change ?
-        self.ttl_cache['access_token'] = res['access_token']
+        self.ttl_cache['access_token'] = token['access_token']
         self.refresh_token = token['refresh_token']
 
-        return res['access_token']
+        return token['access_token']
 
     def get_access_token(self, auth_code=None):
         if 'access_token' in self.ttl_cache:
@@ -147,69 +167,3 @@ class SpoPyAPI:
         self.auth_token = f"Bearer {res.json().get('access_token')}"
         return self.auth_token
 
-    def get_current_user(self):
-        url = f'{API_BASE_URL}/me'
-        res = self._get_request(url)
-        return res
-
-    def get_user_playlists(self, user_id):
-        url = f'{API_BASE_URL}/users/{user_id}/playlists'
-        result = self._get_request(url)
-        return result
-
-    def get_playlist(self, playlist_id):
-        url = f'{API_BASE_URL}/playlists/{playlist_id}'
-        result = self._get_request(url)
-        return result
-
-    def get_track_audio_analysis(self, track_id):
-        url = f'{API_BASE_URL}/audio-analysis/{track_id}'
-        result = self._get_request(url)
-        return result
-
-
-class SpotifyAPIServer(socketserver.TCPServer):
-    def __init__(self, server_address, RequestHandlerClass, spotify_api):
-        super().__init__(server_address, RequestHandlerClass)
-        self.spotify_api = spotify_api
-
-
-class MyRequestHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        # Extract the authorization code from the callback URL
-        query_components = parse_qs(urlparse(self.path).query)
-        auth_code = query_components.get('code', [''])[0]
-
-        self.server.spotify_api._auth_code = auth_code
-
-        # Respond with a simple HTML message
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write(b"<html><body><h1>Authorization successful</h1></body></html>")
-
-    def log_message(self, format, *args):
-        pass
-
-
-def main():
-    myapi = SpoPyAPI()
-    user = myapi.get_current_user()
-    print(user)
-    user_id = user.get('id')
-    playlists = myapi.get_user_playlists(user_id)
-    for playlist in playlists['items']:
-        print(playlist['name'])
-    
-    technostick_id = [x['id'] for x in playlists['items'] if x['name'] == 'TeknoTikku'][0]
-    techno = myapi.get_playlist(technostick_id)
-    for row in techno['tracks']['items']:
-        print(row['track']['name'])
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-
-    load_dotenv('./spopyapi/secrets.env')
-
-    main()
