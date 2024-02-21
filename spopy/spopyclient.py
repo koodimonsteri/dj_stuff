@@ -33,7 +33,7 @@ class SpoPyClient:
             return {}
         return playlist[0]
     
-    def get_playlist_tracks_by_name(self, playlist_name: str) -> List:
+    def get_my_playlist_tracks(self, playlist_name: str) -> List:
         playlist = self.get_my_playlist_by_name(playlist_name)
         if not playlist:
             return []
@@ -45,7 +45,7 @@ class SpoPyClient:
 def main():
     my_client = SpoPyClient()
     
-    for row in my_client.get_playlist_tracks_by_name('TeknoTikku'):
+    for row in my_client.get_my_playlist_tracks('TeknoTikku'):
         print(row)
         exit(1)
 

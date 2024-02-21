@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 OUT_PATH = Path(r'./music')
-
+OUT_FORMAT = 'mp4'
 
 def search_from_youtube(search_str: str):
     """Returns first match"""
@@ -43,25 +43,22 @@ def download_video(out_file_name, video_url):
         logger.debug(e)
         return None
     
-    format = 'mp4'
-    file_name = f'{out_file_name}.{format}'
-
-    if (OUT_PATH / file_name).exists():
+    if (OUT_PATH / out_file_name).exists():
         logger.info('File already exists!')
-        return OUT_PATH / file_name
+        return OUT_PATH / out_file_name
     
     try:
         current_video = yt.streams.get_audio_only()
         logger.info('Current video: %s', current_video)
 
-        current_video.download(output_path=str(OUT_PATH), filename=file_name)
+        current_video.download(output_path=str(OUT_PATH), filename=out_file_name)
     except Exception as e:
         logger.error('Something happened while downloading!')
         logger.exception(e)
         return None
     
-    logger.info('Finished downloading, saved file to: %s', OUT_PATH / file_name)
-    return OUT_PATH / file_name
+    logger.info('Finished downloading, saved file to: %s', OUT_PATH / out_file_name)
+    return OUT_PATH / out_file_name
 
 
 def download_spotify_playlist(playlist_name: str):
@@ -73,9 +70,9 @@ def download_spotify_playlist(playlist_name: str):
     logger.info('Dowloading spotify playlist: %s', playlist_name)
     downloaded_videos = []
     spopy_client = SpoPyClient()
-    playlist_tracks = spopy_client.get_playlist_tracks_by_name(playlist_name)
+    playlist_tracks = spopy_client.get_my_playlist_tracks(playlist_name)
 
-    for track_item in playlist_tracks[:5]:
+    for track_item in playlist_tracks[5:6]:
         track = track_item['track']
         track_name = track['name']
         main_artist = track['artists'][0]['name']
@@ -89,8 +86,8 @@ def download_spotify_playlist(playlist_name: str):
             logger.debug(e)
             continue
 
-        out_file_name = f'{main_artist} - {track_name}'
-        if os.path.exists(OUT_PATH / f'{out_file_name}.mp4'):
+        out_file_name = f'{main_artist} - {track_name}.{OUT_FORMAT}'
+        if os.path.exists(OUT_PATH / out_file_name):
             logger.info('Video has already been downloaded')
             continue
         
