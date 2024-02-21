@@ -15,17 +15,6 @@ logger = logging.getLogger(__name__)
 
 OUT_PATH = Path(r'./music')
 
-"""
-__init__.py
-main.py      # from myapi.client import MyClient
-myapi/
-- __init__.py
-- api.py
-- client.py  # from api import MyAPI
-
-
-
-"""
 
 def search_from_youtube(search_str: str):
     """Returns first match"""
