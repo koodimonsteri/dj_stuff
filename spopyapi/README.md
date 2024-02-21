@@ -1,3 +1,0 @@
-# SpoPyAPI
-
-Simple Spotify WEB API implementation

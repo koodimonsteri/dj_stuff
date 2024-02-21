@@ -4,7 +4,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-from credentials import Credentials
+from spopy.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +37,17 @@ class SpoPyAPI:
         res = self._get_request(url)
         return res
 
-    def get_user_playlists(self, user_id):
+    def get_user_playlists(self, user_id: str):
         url = f'{API_BASE_URL}/users/{user_id}/playlists'
         result = self._get_request(url)
         return result
 
-    def get_playlist(self, playlist_id):
+    def get_playlist(self, playlist_id: str):
         url = f'{API_BASE_URL}/playlists/{playlist_id}'
         result = self._get_request(url)
         return result
 
-    def get_track_audio_analysis(self, track_id):
+    def get_track_audio_analysis(self, track_id: str):
         url = f'{API_BASE_URL}/audio-analysis/{track_id}'
         result = self._get_request(url)
         return result
